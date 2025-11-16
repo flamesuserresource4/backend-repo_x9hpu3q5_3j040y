@@ -1,48 +1,76 @@
 """
-Database Schemas
+Database Schemas for Drago Decor
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model below represents a MongoDB collection. The collection
+name is the lowercase class name (e.g., Product -> "product").
 """
+from typing import List, Optional, Literal
+from pydantic import BaseModel, Field, HttpUrl
 
-from pydantic import BaseModel, Field
-from typing import Optional
+# ---------- Core Domain ----------
 
-# Example schemas (replace with your own):
+class Category(BaseModel):
+    name: str = Field(..., description="Category name")
+    slug: str = Field(..., description="URL-friendly identifier")
+    description: Optional[str] = Field(None, description="Category description")
+    hero_image: Optional[HttpUrl] = Field(None, description="Category image URL")
 
-class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+class ProductVariant(BaseModel):
+    color_name: str = Field(..., description="Variant color name")
+    hex: str = Field(..., description="HEX color (e.g., #AABBCC)")
+    finish: Literal["opaco", "seta", "lucido", "satinato", "opaco-prof"] = Field(
+        "opaco", description="Finitura"
+    )
+    stock: int = Field(0, ge=0, description="Disponibilità in magazzino")
 
 class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
     title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    description: str = Field(..., description="Technical description")
+    category: str = Field(..., description="Category slug")
+    usage: Literal["interno", "esterno", "entrambi"] = Field("interno")
+    base_price: float = Field(..., ge=0, description="Base price")
+    variants: List[ProductVariant] = Field(default_factory=list)
+    tech_sheet_url: Optional[HttpUrl] = Field(None, description="Scheda tecnica URL")
+    images: List[HttpUrl] = Field(default_factory=list)
 
-# Add your own schemas here:
-# --------------------------------------------------
+class Review(BaseModel):
+    product_id: str = Field(..., description="Product _id string")
+    rating: int = Field(..., ge=1, le=5)
+    author: str = Field(...)
+    comment: Optional[str] = Field(None)
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+# ---------- Commerce ----------
+
+class CartItem(BaseModel):
+    product_id: str
+    variant_hex: Optional[str] = None
+    quantity: int = Field(1, ge=1)
+    unit_price: float = Field(..., ge=0)
+
+class Order(BaseModel):
+    user_email: str
+    items: List[CartItem]
+    total: float = Field(..., ge=0)
+    status: Literal["pending", "paid", "shipped"] = "pending"
+
+# ---------- Content ----------
+
+class BlogPost(BaseModel):
+    title: str
+    slug: str
+    content: str
+    cover: Optional[HttpUrl] = None
+    tags: List[str] = Field(default_factory=list)
+
+class ContactMessage(BaseModel):
+    name: str
+    email: str
+    message: str
+
+# ---------- Professionals ----------
+
+class Professional(BaseModel):
+    business_name: str
+    vat: Optional[str] = None
+    email: str
+    tier: Literal["standard", "pro", "elite"] = "standard"
